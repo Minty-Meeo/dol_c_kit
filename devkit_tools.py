@@ -1,5 +1,6 @@
 import subprocess
 import os
+import platform
 import struct
 from dol_c_kit import DolFile, write_uint32
 from dol_c_kit import assemble_branch, write_branch, apply_gecko
@@ -12,6 +13,7 @@ class Project(object):
         
         # System member variables
         self.devkitppc_path = "C:/devkitPro/devkitPPC/bin"
+        self.extension = ".exe" if platform.system() == "Windows" else ""
         
         # Compiling member variables
         self.src_dir = "."
@@ -176,7 +178,7 @@ class Project(object):
         self.is_built = False
     
     def __compile(self, infile):
-        args = [self.devkitppc_path+"/"+"powerpc-eabi-gcc.exe"]
+        args = [self.devkitppc_path+"/"+"powerpc-eabi-gcc"+self.extension]
         args.append(self.src_dir+"/"+infile)
         args.append("-c")
         args.extend(("-o", self.obj_dir+"/"+infile+".o"))
@@ -190,7 +192,7 @@ class Project(object):
         self.obj_files.append(infile+".o")
     
     def __assemble(self, infile):
-        args = [self.devkitppc_path+"/"+"powerpc-eabi-as.exe"]
+        args = [self.devkitppc_path+"/"+"powerpc-eabi-as"+self.extension]
         args.append(self.src_dir+"/"+infile)
         args.extend(("-o", self.obj_dir+"/"+infile+".o"))
         args.append("-w")
@@ -204,7 +206,7 @@ class Project(object):
         if self.base_addr == None:
             raise RuntimeError("ROM end address not set!  New code cannot be linked.")
         
-        args = [self.devkitppc_path+"/"+"powerpc-eabi-ld.exe"]
+        args = [self.devkitppc_path+"/"+"powerpc-eabi-ld"+self.extension]
         # The symbol "." represents the location counter.  By setting it this way,
         # we don't need a linker script to set the base address of our new code.
         args.extend(("--defsym", ".="+hex(self.base_addr)))
@@ -223,13 +225,13 @@ class Project(object):
         subprocess.call(args)
     
     def __objdump_project(self):
-        args = [self.devkitppc_path+"/"+"powerpc-eabi-objdump.exe", self.obj_dir+"/"+self.project_name+".o", "--full-content"]
+        args = [self.devkitppc_path+"/"+"powerpc-eabi-objdump"+self.extension, self.obj_dir+"/"+self.project_name+".o", "--full-content"]
         if self.verbose:
             print(args)
         subprocess.call(args)
     
     def __objcopy_project(self):
-        arg = [self.devkitppc_path+"/"+"powerpc-eabi-objcopy.exe"]
+        arg = [self.devkitppc_path+"/"+"powerpc-eabi-objcopy"+self.extension]
         arg.append(self.obj_dir+"/"+self.project_name+".o")
         arg.append(self.obj_dir+"/"+self.project_name+".bin")
         arg.extend(("-O", "binary"))
