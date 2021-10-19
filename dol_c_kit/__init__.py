@@ -1,4 +1,4 @@
-__version__ = "2.4.1"
+__version__ = "3.0.0"
 __author__ = "Minty Meeo"
 __credits__ = "Yoshi2 (RenolY2)"
 
@@ -24,5 +24,9 @@ from dol_c_kit.doltools import write_oris
 from dol_c_kit.doltools import write_li
 from dol_c_kit.doltools import write_lis
 from dol_c_kit.doltools import write_nop
+from dol_c_kit.mangle import ABI
+from dol_c_kit.mangle import LDPlusPlus
+from dol_c_kit.mangle import mangle
+from dol_c_kit.mangle import itanium_mangle
 
 from dol_c_kit.devkit_tools import Project

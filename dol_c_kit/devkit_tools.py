@@ -287,12 +287,14 @@ class Project(object):
         self.obj_dir = ""
         self.project_name = "project"
         self.c_files = []
+        self.cpp_files = []
         self.asm_files = []
         self.obj_files = []
         self.linker_script_files = []
-        self.gcc_flags = ["-w", "-std=c99", "-O1", "-fno-asynchronous-unwind-tables",]
-        self.as_flags = ["-w",]
-        self.ld_flags = []
+        self.c_flags = ["-w", "-std=c99", "-O1", "-fno-asynchronous-unwind-tables",]
+        self.cpp_flags = ["-w", "-std=c++98", "-O1", "-fno-asynchronous-unwind-tables", "-fno-rtti",]
+        self.asm_flags = ["-w",]
+        self.linker_flags = []
         self.symbols = {}
         self.verbose = verbose
         
@@ -307,11 +309,14 @@ class Project(object):
     
     # Add stuff
     
-    def add_c_file(self, filepath, gcc_flags=(), use_global_flags=True):
-        self.c_files.append((filepath, gcc_flags, use_global_flags))
+    def add_c_file(self, filepath, flags=(), use_global_flags=True):
+        self.c_files.append((filepath, flags, use_global_flags))
         
-    def add_asm_file(self, filepath, as_flags=(), use_global_flags=True):
-        self.asm_files.append((filepath, as_flags, use_global_flags))
+    def add_cpp_file(self, filepath, flags=(), use_global_flags=True):
+        self.cpp_files.append((filepath, flags, use_global_flags))
+        
+    def add_asm_file(self, filepath, flags=(), use_global_flags=True):
+        self.asm_files.append((filepath, flags, use_global_flags))
     
     def add_obj_file(self, filepath, do_cleanup=False):
         self.obj_files.append((filepath, do_cleanup))
@@ -549,12 +554,12 @@ class Project(object):
     
     # Private stuff
     
-    def __compile(self, infile, gcc_flags, use_global_flags):
+    def __compile(self, infile, flags, use_global_flags):
         args = [self.devkitppc_path+"powerpc-eabi-gcc", "-c", self.src_dir+infile, "-o", self.obj_dir+infile+".o", "-I", self.src_dir]
         if use_global_flags:
-            for flag in self.gcc_flags:
+            for flag in self.c_flags:
                 args.append(flag)
-        for flag in gcc_flags:
+        for flag in flags:
             args.append(flag)
         if self.verbose:
             print(args)
@@ -562,12 +567,25 @@ class Project(object):
         self.obj_files.append((infile+".o", True))
         return True
     
-    def __assemble(self, infile, as_flags, use_global_flags):
+    def __compileplusplus(self, infile, flags, use_global_flags):
+        args = [self.devkitppc_path+"powerpc-eabi-g++", "-c", self.src_dir+infile, "-o", self.obj_dir+infile+".o", "-I", self.src_dir]
+        if use_global_flags:
+            for flag in self.cpp_flags:
+                args.append(flag)
+        for flag in flags:
+            args.append(flag)
+        if self.verbose:
+            print(args)
+        subprocess.call(args)
+        self.obj_files.append((infile+".o", True))
+        return True
+    
+    def __assemble(self, infile, flags, use_global_flags):
         args = [self.devkitppc_path+"powerpc-eabi-as", self.src_dir+infile, "-o", self.obj_dir+infile+".o", "-I", self.src_dir]
         if use_global_flags:
-            for flag in self.as_flags:
+            for flag in self.asm_flags:
                 args.append(flag)
-        for flag in as_flags:
+        for flag in flags:
             args.append(flag)
         if self.verbose:
             print(args)
@@ -594,7 +612,7 @@ class Project(object):
         for filename, do_cleanup in self.obj_files:
             args.append(self.obj_dir+filename)
         args.extend(("-Map", self.obj_dir+self.project_name+".map"))
-        for flag in self.ld_flags:
+        for flag in self.linker_flags:
             args.append(flag)
         if self.verbose:
             print(args)
@@ -631,11 +649,14 @@ class Project(object):
         is_linked = False
         is_processed = False
         
-        for filepath, gcc_flags, use_global_flags in self.c_files:
-            is_built |= self.__compile(filepath, gcc_flags, use_global_flags)
+        for filepath, flags, use_global_flags in self.c_files:
+            is_built |= self.__compile(filepath, flags, use_global_flags)
         
-        for filepath, as_flags, use_global_flags in self.asm_files:
-            is_built |= self.__assemble(filepath, as_flags, use_global_flags)
+        for filepath, flags, use_global_flags in self.cpp_files:
+            is_built |= self.__compileplusplus(filepath, flags, use_global_flags)
+        
+        for filepath, flags, use_global_flags in self.asm_files:
+            is_built |= self.__assemble(filepath, flags, use_global_flags)
         
         if is_built == True:
             is_linked |= self.__link_project()
