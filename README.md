@@ -99,7 +99,7 @@ Delete unimportant files created by DOL C-Kit.  This includes unlinked \*.o file
 In C++, there is the concept of mangled symbol names.  For example, the function signature `int foo::bar(MyClass arg1)` becomes the symbol `_ZN3foo3barE7MyClass`.  DOL C-Kit provides faculties to make working with mangled symbols easy.
 
 ## The LDPlusPlus class
-`from dol_c_kit import LDPlusPlus`
+`from dol_c_kit import LDPlusPlus, ABI`
 
 Just like a usual linker script to give dol-side symbols a value for C and ASM, one is needed for C++ as well.  LDPlusPlus makes this easier by mangling function signatures in bulk for you.
 
@@ -118,7 +118,7 @@ The LDPlusPlus class constructor has one parameter.  abi is the desired ABI (an 
 Save the linker script to a given filepath.
 
 ## mangle (and itanium_mangle)
-`from dol_c_kit import mangle, itanium_mangle`
+`from dol_c_kit import mangle, itanium_mangle, ABI`
 
 To mangle an individual signature, use the mangle function (or itanium_mangle function).  This is useful for hooks which take a symbol name as an argument.
 
@@ -133,6 +133,8 @@ Writing a C++ mangler that has no concept of user defined types, or really any c
 * Function pointer types are not supported.
 * Certain kinds of template instancing are not supported.
 * Typedefs are not supported (yet).
+* Only righthand const (e.g. `int myfunc(int const *)`) is supported (for now).  `int myfunc(const int*)` will break.
+* Implicit integral long and long long is not supported.  Always type out long int and long long int, respectively.
 * To mangle certain edge cases, special tokens starting with "$$" are used:
   * `$$vtable` is used for vtable signatures.  e.g. `ClassA::$$vtable` will mangle to `_ZTV6ClassA`.
   * `$$rtti` is used for typeinfo signatures.  e.g. `ClassA::$$rtti` will mangle to `_ZTI6ClassA`.
