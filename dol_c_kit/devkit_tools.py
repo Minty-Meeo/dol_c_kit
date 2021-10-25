@@ -1,6 +1,7 @@
 import subprocess
 import os
 import platform
+from enum import Enum
 from dol_c_kit import assemble_branch, write_branch, mask_field, hi, lo, hia
 
 from dolreader.dol import DolFile, write_uint32
@@ -270,17 +271,31 @@ SupportedGeckoCodetypes = [
     GeckoCommand.Type.ASM_INSERT_XOR,
 ]
 
+class Compiler(Enum):
+    DevkitPPC = 0
+    CodeWarrior = 1
+class Assembler(Enum):
+    DevkitPPC = 0
+    CodeWarrior = 1
+class Linker(Enum):
+    DevkitPPC = 0
+
 class Project(object):
-    def __init__(self, base_addr=None, verbose=False):
+    def __init__(self, base_addr=None, verbose=False, compiler=Compiler.DevkitPPC, assembler=Assembler.DevkitPPC, linker=Linker.DevkitPPC):
         self.base_addr = base_addr
+        self.compiler = compiler
+        self.assembler = assembler
+        self.linker = linker
         self.sda_base = None
         self.sda2_base = None
         
         # System member variables
         if platform.system() == "Windows":
             self.devkitppc_path = "C:/devkitPro/devkitPPC/bin/"
+            self.codewarrior_path = "C:/Program Files (x86)/Metrowerks/CodeWarrior/PowerPC_EABI_Tools/Command_Line_Tools/"
         else:
             self.devkitppc_path = "/opt/devkitpro/devkitPPC/bin/"
+            self.codewarrior_path = "/"
         
         # Compiling member variables
         self.src_dir = ""
@@ -291,10 +306,29 @@ class Project(object):
         self.asm_files = []
         self.obj_files = []
         self.linker_script_files = []
-        self.c_flags = ["-w", "-std=c99", "-O1", "-fno-asynchronous-unwind-tables",]
-        self.cpp_flags = ["-w", "-std=c++98", "-O1", "-fno-asynchronous-unwind-tables", "-fno-rtti",]
-        self.asm_flags = ["-w",]
-        self.linker_flags = []
+        
+        if self.compiler == Compiler.DevkitPPC:
+            self.c_flags = ["-w", "-std=c99", "-O1", "-fno-asynchronous-unwind-tables",]
+            self.cpp_flags = ["-w", "-std=c++98", "-O1", "-fno-asynchronous-unwind-tables", "-fno-rtti",]
+        elif self.compiler == Compiler.CodeWarrior:
+            self.c_flags = ["-proc", "gekko", "-Cpp_exceptions", "off", "-use_lmw_stmw", "on", "-fp", "fmadd", "-schedule", "on",]
+            self.cpp_flags = ["-proc", "gekko", "-Cpp_exceptions", "off", "-use_lmw_stmw", "on", "-fp", "fmadd", "-schedule", "on",]
+        else:
+            self.c_flags = []
+            self.cpp_flags = []
+        
+        if self.assembler == Assembler.DevkitPPC:
+            self.asm_flags = ["-w",]
+        elif self.assembler == Assembler.DevkitPPC:
+            self.asm_flags = ["-proc", "gekko",]
+        else:
+            self.asm_flags = []
+        
+        if self.linker == Linker.DevkitPPC:
+            self.linker_flags = []
+        else:
+            self.linker_flags = []   # lmao
+        
         self.symbols = {}
         self.verbose = verbose
         
@@ -555,7 +589,11 @@ class Project(object):
     # Private stuff
     
     def __compile(self, infile, flags, use_global_flags):
-        args = [self.devkitppc_path+"powerpc-eabi-gcc", "-c", self.src_dir+infile, "-o", self.obj_dir+infile+".o", "-I", self.src_dir]
+        if self.compiler == Compiler.DevkitPPC:
+            args = [self.devkitppc_path+"powerpc-eabi-gcc", "-c", self.src_dir+infile, "-o", self.obj_dir+infile+".o", "-I", self.src_dir]
+        if self.compiler == Compiler.CodeWarrior:
+            args = [self.codewarrior_path+"mwcceppc", "-lang", "c", "-c", self.src_dir+infile, "-o", self.obj_dir+infile+".o", "-i", self.src_dir]
+        
         if use_global_flags:
             for flag in self.c_flags:
                 args.append(flag)
@@ -568,7 +606,11 @@ class Project(object):
         return True
     
     def __compileplusplus(self, infile, flags, use_global_flags):
-        args = [self.devkitppc_path+"powerpc-eabi-g++", "-c", self.src_dir+infile, "-o", self.obj_dir+infile+".o", "-I", self.src_dir]
+        if self.compiler == Compiler.DevkitPPC:
+            args = [self.devkitppc_path+"powerpc-eabi-g++", "-c", self.src_dir+infile, "-o", self.obj_dir+infile+".o", "-I", self.src_dir]
+        if self.compiler == Compiler.CodeWarrior:
+            args = [self.codewarrior_path+"mwcceppc", "-lang", "c++", "-c", self.src_dir+infile, "-o", self.obj_dir+infile+".o", "-i", self.src_dir]
+        
         if use_global_flags:
             for flag in self.cpp_flags:
                 args.append(flag)
@@ -581,7 +623,11 @@ class Project(object):
         return True
     
     def __assemble(self, infile, flags, use_global_flags):
-        args = [self.devkitppc_path+"powerpc-eabi-as", self.src_dir+infile, "-o", self.obj_dir+infile+".o", "-I", self.src_dir]
+        if self.assembler == Assembler.DevkitPPC:
+            args = [self.devkitppc_path+"powerpc-eabi-as", self.src_dir+infile, "-o", self.obj_dir+infile+".o", "-I", self.src_dir]
+        elif self.assembler == Assembler.CodeWarrior:
+            args = [self.codewarrior_path+"mwasmeppc", "-c", self.src_dir+infile, "-o", self.obj_dir+infile+".o", "-i", self.src_dir]
+        
         if use_global_flags:
             for flag in self.asm_flags:
                 args.append(flag)
@@ -597,21 +643,22 @@ class Project(object):
         if self.base_addr == None:
             raise RuntimeError("Base address not set!  New code cannot be linked.")
         
-        args = [self.devkitppc_path+"powerpc-eabi-ld", "-o", self.obj_dir+self.project_name+".o"]
-        # The symbol "." represents the location counter.  By setting it this way,
-        # we don't need a linker script to set the base address of our new code.
-        args.extend(("--defsym", ".="+hex(self.base_addr)))
-        # Since we have to gather sda/sda2 base addresses for the project, we
-        # might as well send that info to the linker if we have it.
-        if self.sda_base:
-            args.extend(("--defsym", "_SDA_BASE_="+hex(self.sda_base)))
-        if self.sda2_base:
-            args.extend(("--defsym", "_SDA2_BASE_="+hex(self.sda2_base)))
-        for file in self.linker_script_files:
-            args.extend(("-T", file))
-        for filename, do_cleanup in self.obj_files:
-            args.append(self.obj_dir+filename)
-        args.extend(("-Map", self.obj_dir+self.project_name+".map"))
+        if self.linker == Linker.DevkitPPC:
+            args = [self.devkitppc_path+"powerpc-eabi-ld", "-o", self.obj_dir+self.project_name+".o"]
+            # The symbol "." represents the location counter.  By setting it this way,
+            # we don't need a linker script to set the base address of our new code.
+            args.extend(("--defsym", ".="+hex(self.base_addr)))
+            # Since we have to gather sda/sda2 base addresses for the project, we
+            # might as well send that info to the linker if we have it.
+            if self.sda_base:
+                args.extend(("--defsym", "_SDA_BASE_="+hex(self.sda_base)))
+            if self.sda2_base:
+                args.extend(("--defsym", "_SDA2_BASE_="+hex(self.sda2_base)))
+            for file in self.linker_script_files:
+                args.extend(("-T", file))
+            for filename, do_cleanup in self.obj_files:
+                args.append(self.obj_dir+filename)
+            args.extend(("-Map", self.obj_dir+self.project_name+".map"))
         for flag in self.linker_flags:
             args.append(flag)
         if self.verbose:
