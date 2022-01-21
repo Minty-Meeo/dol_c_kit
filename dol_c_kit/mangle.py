@@ -29,6 +29,9 @@ class MutableString(list):
     
     def startswith(self, string):
         return str(self).startswith(string)
+    
+    def rfind(self, string):
+        return str(self).rfind(string)
 
 class MangleError(Exception):
     pass
@@ -56,7 +59,7 @@ class SpecialTokenCtor(object):
         return "\'$$ctor{}\'".format(self.num)
     def itanium_mangle(self, compressibles):
         return "C{}".format(self.num)
-    def macintosh_mangle(self, compressibles):
+    def macintosh_mangle(self):
         if self.num == 1:
             return "__ct"
         raise MangleError("Macintosh ABI doesn't have numbered ctors")
@@ -70,7 +73,7 @@ class SpecialTokenDtor(object):
         return "\'$$dtor{}\'".format(self.num)
     def itanium_mangle(self, compressibles):
         return "D{}".format(self.num)
-    def macintosh_mangle(self, compressibles):
+    def macintosh_mangle(self):
         if self.num == 1:
             return "__dt"
         raise MangleError("Macintosh ABI doesn't have numbered dtors")
@@ -82,7 +85,7 @@ class SpecialTokenVTable(object):
         return "\'$$vtable\'"
     def itanium_mangle(self, compressibles):
         return "TV"
-    def macintosh_mangle(self, compressibles):
+    def macintosh_mangle(self):
         return "__vt"
 
 class SpecialTokenRTTI(object):
@@ -92,7 +95,7 @@ class SpecialTokenRTTI(object):
         return "\'$$rtti\'"
     def itanium_mangle(self, compressibles):
         return "TI"
-    def macintosh_mangle(self, compressibles):
+    def macintosh_mangle(self):
         return "__RTTI"
 
 class SpecialTokenVTTStructure(object): # Itanium exclusive?
@@ -102,7 +105,7 @@ class SpecialTokenVTTStructure(object): # Itanium exclusive?
         return "\'$$vtt_structure\'"
     def itanium_mangle(self, compressibles):
         return "TT"
-    def macintosh_mangle(self, compressibles):
+    def macintosh_mangle(self):
         raise MangleError("Macintosh ABI doesn't have VTT Structure")
 
 class SpecialTokenRTTIName(object): # Itanium exclusive?
@@ -112,7 +115,7 @@ class SpecialTokenRTTIName(object): # Itanium exclusive?
         return "\'$$rtti_name\'"
     def itanium_mangle(self, compressibles):
         return "TS"
-    def macintosh_mangle(self, compressibles):
+    def macintosh_mangle(self):
         raise MangleError("Macintosh ABI doesn't have RTTI Name")
 
 class SpecialTokenUnary(object):   # This one is extra special.  It should never be mangled, only provide context and be removed.
@@ -280,7 +283,7 @@ class SpecialOperatorBitwiseAND(object):
         return "\'operator &\'"
     def itanium_mangle(self, compressibles):
         return "an"
-    def macintosh_mangle(self, compressibles):
+    def macintosh_mangle(self):
         raise "__ad"   # Identical to OperatorReference
 
 class SpecialOperatorBitwiseOR(object):
@@ -1340,36 +1343,65 @@ class Signature(Expression):
             return ""
         if len(self) == 1:
             # Special signature (vtable, rtti, etc.)
-            return self[0].macintosh_mangle()
+            if type(self[0]) == OperatorNamespace:
+                if type(self[0].rhand) == SyntaxToken:
+                    name = "{}__{}".format(self[0].rhand, self[0].lhand.macintosh_mangle())
+                else:
+                    name = "{}__{}".format(self[0].rhand.macintosh_mangle(), self[0].lhand.macintosh_mangle())
+            else:
+                name = self[0].macintosh_mangle()
+            return name
         if len(self) == 2:
             # Special function signature (ctors and dtors)
             if type(self[1]) == OperatorFunctionArgs \
             or type(self[1]) == OperatorConst and type(self[1].lhand) == OperatorFunctionArgs:
                 if type(self[0]) == OperatorNamespace:
-                    name = "{}__{}".format(self[0].rhand, self[0].lhand.macintosh_mangle())
+                    if type(self[0].rhand) == SyntaxToken:
+                        name = "{}__{}".format(self[0].rhand, self[0].lhand.macintosh_mangle())
+                    else:
+                        name = "{}__{}".format(self[0].rhand.macintosh_mangle(), self[0].lhand.macintosh_mangle())
                 else:
-                    name = "{}__".format(self[0])
+                    if type(self[0]) == SyntaxToken:
+                        name = "{}__".format(self[0])
+                    else:
+                        name = "{}__".format(self[0].macintosh_mangle())
                 args = "F{}".format(self[1].macintosh_mangle())
                 return name + args
             # Global variable signature
             else:
                 if type(self[1]) == OperatorNamespace:
-                    name = "{}__{}".format(self[1].rhand, self[1].lhand.macintosh_mangle())
+                    if type(self[1].rhand) == SyntaxToken:
+                        name = "{}__{}".format(self[1].rhand, self[1].lhand.macintosh_mangle())
+                    else:
+                        name = "{}__{}".format(self[1].rhand.macintosh_mangle(), self[1].lhand.macintosh_mangle())
                 else:
-                    name = self[1].macintosh_mangle()
+                    if type(self[1]) == SyntaxToken:
+                        name = "{}".format(self[1])
+                    else:
+                        name = self[1].macintosh_mangle()
                 return name
         if len(self) == 3:
             # Function signature
             if type(self[2]) == OperatorFunctionArgs:
                 if type(self[1]) == OperatorNamespace:
-                    name = "{}__{}".format(self[1].rhand, self[1].lhand.macintosh_mangle())
+                    if type(self[1].rhand) == SyntaxToken:
+                        name = "{}__{}".format(self[1].rhand, self[1].lhand.macintosh_mangle())
+                    else:
+                        name = "{}__{}".format(self[1].rhand.macintosh_mangle(), self[1].lhand.macintosh_mangle())
                 else:
-                    name = "{}__".format(self[1])
+                    if type(self[1]) == SyntaxToken:
+                        name = "{}__".format(self[1])
+                    else:
+                        name = "{}__".format(self[1].macintosh_mangle())
                 args = "F{}".format(self[2].macintosh_mangle())
                 return name + args
             # Const class methods
             if type(self[2]) == OperatorConst and type(self[2].lhand) == OperatorFunctionArgs:
-                name = "{}__{}C".format(self[1].rhand, self[1].lhand.macintosh_mangle())   # This will always be a namespace, unless it is invalid C++.
+                # This will always be a namespace, unless it is invalid C++.
+                if type(self[1].rhand) == SyntaxToken:
+                    name = "{}__{}C".format(self[1].rhand, self[1].lhand.macintosh_mangle())
+                else:
+                    name = "{}__{}C".format(self[1].rhand.macintosh_mangle(), self[1].lhand.macintosh_mangle())
                 args = "F{}".format(self[2].macintosh_mangle())
                 return name + args
         raise MangleError("Too much stuff!")
@@ -1630,4 +1662,7 @@ if __name__ == "__main__":
     diagnose2("void name::Test::MethodA()", "MethodA__Q24name4TestFv")
     diagnose2("void name::Test::MethodB() const", "MethodB__Q24name4TestCFv")
     diagnose("const int myfunc(const int*, const asdf::jkl&)", "?")
+    diagnose2("void* operator new[](unsigned long int, int)", "?")
+    diagnose2("int MyGlobal", "?")
+    diagnose2("ANode::$$vtable", "?")
 
