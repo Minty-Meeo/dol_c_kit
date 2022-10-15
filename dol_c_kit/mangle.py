@@ -176,7 +176,7 @@ class SpecialOperatorCoAwait(object):
     def macintosh_mangle(self):
         raise MangleError("Macintosh ABI doesn't have co_await")
 
-class SpecialOperatorPositive(object):   # unary
+class SpecialOperatorPromotion(object):   # unary
     def __str__(self):
         return "operator + (unary)"
     def __repr__(self):
@@ -186,7 +186,7 @@ class SpecialOperatorPositive(object):   # unary
     def macintosh_mangle(self):
         raise "__pl"   # Identical to OperatorAdd
 
-class SpecialOperatorNegative(object):   # unary
+class SpecialOperatorNegation(object):   # unary
     def __str__(self):
         return "operator - (unary)"
     def __repr__(self):
@@ -1242,11 +1242,11 @@ class Expression(list):
                 continue
             if type(iter) == SpecialTokenUnary:
                 if type(self[i-1]) == SpecialOperatorAdd:
-                    self[i-1] = SpecialOperatorPositive()
+                    self[i-1] = SpecialOperatorPromotion()
                     self.pop(i)
                     continue
                 if type(self[i-1]) == SpecialOperatorSubtract:
-                    self[i-1] = SpecialOperatorNegative()
+                    self[i-1] = SpecialOperatorNegation()
                     self.pop(i)
                     continue
                 if type(self[i-1]) == SpecialOperatorBitwiseAND:
