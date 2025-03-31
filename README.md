@@ -1,12 +1,13 @@
 # What is DOL C-Kit?
-DOL C-Kit is a toolkit for compiling C/C++ code (or assembly) using DevkitPPC to inject into a GameCube/Wii \*.dol executable.  It has been written in such a way that it can be adapted to many different games.  You will need [Python 3](https://www.python.org/downloads/) and [DevKitPPC](https://devkitpro.org/wiki/Getting_Started) installed to use it.  As well, DOL C-Kit is dependent on [pyelftools](https://github.com/eliben/pyelftools), JoshuaMK's fork of [dolreader](https://github.com/JoshuaMKW/dolreader), and [geckocode-libs](https://github.com/JoshuaMKW/geckocode-libs).
+DOL C-Kit is a toolkit for compiling C/C++ code (or assembly) using DevkitPPC to inject into a GameCube/Wii \*.dol executable.  It has been written in such a way that it can be adapted to many different games.  You will need [Python 3](https://www.python.org/downloads/) and [DevKitPPC](https://devkitpro.org/wiki/Getting_Started) installed to use it.
 
 Optionally, one may use MetroWerks CodeWarrior instead of DevkitPPC for compiling and assembling code.  DevkitPPC is still a dependency even if CodeWarrior tools are used, since a GCC linker is needed.
 
 Credit to Yoshi2 for creating the original GC C-Kit.  DOL C-Kit couldn't exist without it.
 
-## How to use it
-DOL C-Kit is a Python module.  To install on Windows, run INSTALL.bat as administrator.  To install on Linux, run INSTALL.sh as superuser.
+## Installation
+DOL C-Kit is a Python module.  Run the command `pip install "dol_c_kit @ git+https://github.com/Minty-Meeo/dol_c_kit.git"` to install it.  It may be necessary to use the `--break-system-packages` option if you are on Linux.  DOL C-Kit is dependent on [pyelftools](https://github.com/eliben/pyelftools), JoshuaMK's fork of [dolreader](https://github.com/JoshuaMKW/dolreader), and [geckocode-libs](https://github.com/JoshuaMKW/geckocode-libs).
+
 
 ## The Project Class
 `from dol_c_kit import Project, Compiler, Assembler, Linker`
